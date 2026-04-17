@@ -1,0 +1,71 @@
+name: Deploy Caddy Config
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 'lts/*'
+
+    - name: Prepare logging
+      run: |
+        sudo mkdir -p /var/log/caddy
+        sudo chown -R caddy:caddy /var/log/caddy
+        sudo chmod 755 /var/log/caddy
+
+        sudo touch /var/log/caddy/caddy-errors.log
+        sudo chown caddy:caddy /var/log/caddy/caddy-errors.log
+        sudo chmod 644 /var/log/caddy/caddy-errors.log
+
+
+    - name: Install monitoring script
+      run: |
+        sudo mkdir -p /opt/alerts
+        sudo cp opt/check_services.sh /opt/alerts/check-services.sh
+        sudo chmod +x /opt/alerts/check-services.sh
+
+    - name: Validate config files
+      run: npm run validate:config
+
+    - name: Generate Caddyfile
+      run: npm run generate
+
+    - name: Validate Caddyfile
+      run: caddy validate --config Caddyfile
+
+    - name: Deploy
+      run: |
+        sudo cp Caddyfile /etc/caddy/Caddyfile
+        sudo caddy reload --config /etc/caddy/Caddyfile
+
+    - name: Health check
+      run: |
+        sleep 5
+        npm run health-check
+
+    - name: Summary
+      run: |
+        CONFIG_DIR="config"
+        DOMAINS=$(jq -r '.domain' $CONFIG_DIR/*.json)
+        TOTAL_SUBDOMAINS=$(jq -r '.subdomains | keys | length' $CONFIG_DIR/*.json | awk '{s+=$1} END {print s}')
+
+        echo "## 🚀 Deployment Summary" >> $GITHUB_STEP_SUMMARY
+        echo "**Domains:**" >> $GITHUB_STEP_SUMMARY
+
+        for d in $DOMAINS; do
+          echo "- $d" >> $GITHUB_STEP_SUMMARY
+        done
+
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Total Subdomains:** $TOTAL_SUBDOMAINS" >> $GITHUB_STEP_SUMMARY
+        echo "**Status:** ✅ OK" >> $GITHUB_STEP_SUMMARY

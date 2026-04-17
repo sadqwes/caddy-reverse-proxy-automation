@@ -1,0 +1,8 @@
+.DS_Store
+.env
+.env.local
+.codex
+node_modules/
+Caddyfile
+config/*.local.json
+config/*.private.json

@@ -1,0 +1,13 @@
+{
+  "domain": "example2.com",
+  "subdomains": {
+    "api": {
+      "target": "api.backend.com",
+      "forwardRoutes": {
+        "/webhook": "/internal/webhooks/stripe",
+        "/telegram": "/internal/webhooks/telegram"
+      }
+    },
+    "app": "app.backend.com"
+  }
+}
