@@ -1,5 +1,9 @@
 # Caddy Reverse Proxy Automation
 
+[![CI](https://img.shields.io/github/actions/workflow/status/sadqwes/caddy-reverse-proxy-automation/ci.yaml?branch=main&label=CI)](https://github.com/sadqwes/caddy-reverse-proxy-automation/actions/workflows/ci.yaml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
+[![Node.js](https://img.shields.io/badge/node-%3E%3D18-339933?logo=node.js&logoColor=white)](./package.json)
+
 Infrastructure repository for managing a multi-domain Caddy reverse proxy with generated config, path-based forwarding, health checks, and simple service monitoring.
 
 This project is useful when you want to keep reverse proxy configuration in Git, deploy changes through GitHub Actions, and add new domains by committing JSON config files instead of editing the server manually.
@@ -11,6 +15,17 @@ This project is useful when you want to keep reverse proxy configuration in Git,
 - `Caddyfile` is generated automatically, which reduces manual mistakes.
 - CI validates config before deployment.
 - A lightweight monitoring script can alert to Slack and optionally restart services.
+
+## Why I Built This
+
+I wanted a small infrastructure project that solves a real operational problem: managing reverse proxy rules in a repeatable way without editing production config by hand.
+
+This repository also serves as a portfolio project. It demonstrates:
+
+- infrastructure-as-code thinking
+- basic CI/CD automation with GitHub Actions
+- config validation before deployment
+- operational concerns such as health checks and service monitoring
 
 ## Features
 
@@ -36,6 +51,27 @@ scripts/
   generate-caddyfile.js
   health-check.js
   validate-config.js
+Makefile
+CONTRIBUTING.md
+```
+
+## Architecture
+
+```text
+config/*.json
+    |
+    v
+validate-config.js
+    |
+    v
+generate-caddyfile.js
+    |
+    v
+Caddyfile
+    |
+    +--> caddy validate
+    +--> deploy.yaml (manual, self-hosted)
+    +--> health-check.js
 ```
 
 ## How It Works
@@ -94,12 +130,46 @@ Supported target formats:
 "api": "http://217.114.10.17"
 ```
 
+## Example Generated Output
+
+Example of what the generated `Caddyfile` looks like:
+
+```caddyfile
+api.example.com {
+    handle /webhook* {
+        uri replace /webhook /internal/webhooks/stripe
+        reverse_proxy https://api.backend.com {
+            header_up Host api.backend.com
+            import common_proxy
+        }
+    }
+
+    handle {
+        reverse_proxy https://api.backend.com {
+            header_up Host api.backend.com
+            import common_proxy
+        }
+    }
+}
+```
+
 ## Local Usage
 
 Requirements:
 
 - Node.js 18+
 - Caddy installed on the target server for validation and reload
+
+## Minimal Server Requirements
+
+Tested baseline for a small proxy server:
+
+- Linux server, for example Ubuntu
+- 1 vCPU
+- 1 GB RAM
+- 1 GB swap
+
+This is a practical minimum for a lightweight setup with Caddy, generated config, and basic monitoring. Higher traffic or more backends may require more resources.
 
 Commands:
 
@@ -109,12 +179,21 @@ npm run generate
 npm run health-check
 ```
 
+Or with `make`:
+
+```bash
+make validate
+make generate
+make health-check
+```
+
 ## CI/CD
 
 This repository includes two GitHub Actions workflows:
 
 - `ci.yaml` validates config and generates a `Caddyfile` on push and pull request
 - `deploy.yaml` is intended for a self-hosted runner and performs deployment to the server
+- `deploy.yaml` runs manually via `workflow_dispatch`, which keeps the public repository green when no self-hosted runner is attached
 
 Deployment flow:
 
@@ -175,3 +254,20 @@ Behavior:
 - Sends recovery alert when the service is back
 - Avoids alert spam by storing state files
 - Optionally attempts service restart before notifying about a hard failure
+
+## Limitations
+
+- Deployment requires a self-hosted GitHub Actions runner
+- Health checks assume public HTTPS endpoints are reachable from the runner
+- The monitoring script is Linux-only and expects `systemd`
+- Paths like `/etc/caddy` and `/opt/alerts` are intentionally server-oriented, not fully portable
+
+## Contributing
+
+Small improvements are welcome. If you want to extend the project:
+
+1. Add or update a config example in `config/`
+2. Run `make validate` and `make generate`
+3. Open a pull request with a short explanation of the change
+
+Please do not commit real domains, private backend addresses, secrets, or production `.env` files.
