@@ -8,6 +8,10 @@ Infrastructure repository for managing a multi-domain Caddy reverse proxy with g
 
 This project is useful when you want to keep reverse proxy configuration in Git, deploy changes through GitHub Actions, and add new domains by committing JSON config files instead of editing the server manually.
 
+## Related Repositories
+
+- [caddy-reverse-proxy-ansible](https://github.com/sadqwes/caddy-reverse-proxy-ansible) provisions the target server for this project, including Caddy installation, SSH setup, and GitHub Actions runner configuration.
+
 ## Why This Project
 
 - One repository can manage multiple domains and subdomains.
